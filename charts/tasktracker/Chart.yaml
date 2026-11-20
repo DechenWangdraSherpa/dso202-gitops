@@ -1,0 +1,22 @@
+# =====================================================================
+# File        : charts/tasktracker/Chart.yaml
+# Assignment  : DSO202 Assignment 4 (chart from Assignment 3, adapted)
+# Descriptor  : Unit III 3.2 - Helm charts; Unit IV 4.2.2 - Helm with Argo CD
+# Purpose     : Chart metadata for the three-tier Task Tracker. The chart is
+#               identical in every environment; only values and the Git
+#               revision differ.
+# =====================================================================
+apiVersion: v2
+name: tasktracker
+description: Three-tier Task Tracker (frontend, backend, PostgreSQL), delivered by Argo CD
+type: application
+# Chart version. Image versions are values (requirement C1), not appVersion.
+version: 0.4.0
+appVersion: "1.0"
+kubeVersion: ">=1.30.0-0"
+keywords:
+  - task-tracker
+  - dso202
+  - gitops
+maintainers:
+  - name: Dechen Wangdra Sherpa

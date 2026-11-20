@@ -1,0 +1,10 @@
+# =====================================================================
+# File        : charts/tasktracker/.helmignore
+# Assignment  : DSO202 Assignment 4
+# Purpose     : Files Helm leaves out when it packages or renders the chart.
+# =====================================================================
+.git/
+*.swp
+*.bak
+*.tmp
+.DS_Store

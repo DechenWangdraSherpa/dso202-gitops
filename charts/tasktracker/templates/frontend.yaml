@@ -1,0 +1,69 @@
+# =====================================================================
+# File        : charts/tasktracker/templates/frontend.yaml
+# Assignment  : DSO202 Assignment 4 (from Assignment 3)
+# Descriptor  : Unit I 1.5 - Deployments, NodePort Services; Unit IV 4.3.2
+# Purpose     : nginx frontend. Wave 2 (C5): applied last. The Service is a
+#               NodePort whose port is a value (C10): 30080 dev, 30081 staging.
+# =====================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-svc
+  labels:
+    {{- include "tasktracker.labels" (dict "root" . "tier" "frontend") | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  type: NodePort
+  selector:
+    {{- include "tasktracker.selectorLabels" (dict "tier" "frontend") | nindent 4 }}
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: {{ .Values.frontend.service.nodePort }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  labels:
+    {{- include "tasktracker.labels" (dict "root" . "tier" "frontend") | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  replicas: {{ .Values.frontend.replicaCount }}
+  # C6: a stuck rollout is reported as failed (Degraded) after 120 s.
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
+  selector:
+    matchLabels:
+      {{- include "tasktracker.selectorLabels" (dict "tier" "frontend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tasktracker.labels" (dict "root" . "tier" "frontend") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: web
+          image: {{ include "tasktracker.image" .Values.frontend.image | quote }}
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: BACKEND_URL
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: BACKEND_URL}
+            {{- include "tasktracker.extraEnv" .Values.frontend.env | nindent 12 }}
+          # C4: nginx serves index.html.
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}

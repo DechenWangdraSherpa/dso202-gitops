@@ -1,0 +1,89 @@
+# =====================================================================
+# File        : charts/tasktracker/templates/backend.yaml
+# Assignment  : DSO202 Assignment 4 (from Assignment 3)
+# Descriptor  : Unit I 1.5 - Deployments, Services; Unit IV 4.3.2 - sync waves
+# Purpose     : REST API tier. Wave 1 (C5): applied after the database is
+#               Healthy and before the frontend.
+# =====================================================================
+apiVersion: v1
+kind: Service
+metadata:
+  # The smoke-test Job (smoke-test-job.yaml) calls this name.
+  name: backend-svc
+  labels:
+    {{- include "tasktracker.labels" (dict "root" . "tier" "backend") | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  type: ClusterIP
+  selector:
+    {{- include "tasktracker.selectorLabels" (dict "tier" "backend") | nindent 4 }}
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    {{- include "tasktracker.labels" (dict "root" . "tier" "backend") | nindent 4 }}
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  # C6: a stuck rollout is reported as failed (Degraded) after 120 s.
+  progressDeadlineSeconds: {{ .Values.progressDeadlineSeconds }}
+  selector:
+    matchLabels:
+      {{- include "tasktracker.selectorLabels" (dict "tier" "backend") | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "tasktracker.labels" (dict "root" . "tier" "backend") | nindent 8 }}
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      serviceAccountName: {{ .Values.serviceAccount.name }}
+      containers:
+        - name: api
+          image: {{ include "tasktracker.image" .Values.backend.image | quote }}
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: DB_HOST
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: DB_HOST}
+            - name: DB_PORT
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: DB_PORT}
+            - name: DB_NAME
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: DB_NAME}
+            - name: APP_PORT
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: APP_PORT}
+            - name: CORS_ORIGIN
+              valueFrom:
+                configMapKeyRef: {name: app-config, key: CORS_ORIGIN}
+            # C3: credentials from the existing Secret named by a value.
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.existingSecret }}, key: DB_USER}
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef: {name: {{ .Values.existingSecret }}, key: DB_PASSWORD}
+            # C2: per-tier variables from values (backend.env).
+            {{- include "tasktracker.extraEnv" .Values.backend.env | nindent 12 }}
+          # C4: GET /api/status answers 200 only when the database is reachable.
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: http
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}

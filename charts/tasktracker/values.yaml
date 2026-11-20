@@ -1,0 +1,85 @@
+# =====================================================================
+# File        : charts/tasktracker/values.yaml
+# Assignment  : DSO202 Assignment 4
+# Descriptor  : Unit III 3.2 - Helm values; Unit IV 4.3 - Argo CD delivery
+# Purpose     : Chart DEFAULTS only. Everything that differs between dev and
+#               staging lives in environments/<env>/values.yaml, never here
+#               and never in a template.
+# =====================================================================
+
+# Environment name, used only as a label. Required: the chart refuses to
+# render until an environment values file sets it.
+environment: ""
+
+# C3: the chart never renders a Secret. Pods read DB_* / POSTGRES_* from an
+# existing Secret, created in each namespace by the Sealed Secrets
+# controller from platform/<env>/tasktracker-credentials.sealed.yaml.
+existingSecret: tasktracker-credentials
+
+# Non-secret settings, rendered into the ConfigMap app-config.
+config:
+  dbHost: db-svc
+  dbPort: 5432
+  dbName: taskdb
+  appPort: 8080
+  corsOrigin: "*"
+  # URL the BROWSER uses to reach the backend API (through kubectl
+  # port-forward); the frontend substitutes it into config.js at start-up.
+  backendUrl: http://localhost:8082
+
+# One ServiceAccount for the three tiers. It has no Role and its token is not
+# mounted: the Task Tracker never calls the Kubernetes API.
+serviceAccount:
+  name: tasktracker
+
+database:
+  # C1: repository and tag are values for each tier.
+  image:
+    repository: dwangshers/dso202-amd64-db
+    tag: "1.0"
+    pullPolicy: IfNotPresent
+  storage: 1Gi
+  # C2: extra environment variables, rendered from values.
+  env: {}
+  # C7: requests and limits on every container (the namespace quota demands them).
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits:   {cpu: 500m, memory: 512Mi}
+
+backend:
+  replicaCount: 1
+  image:
+    repository: dwangshers/dso202-amd64-backend
+    tag: "1.0"
+    pullPolicy: IfNotPresent
+  # C2: adding a backend environment variable is a values change only, e.g.
+  #   env:
+  #     DB_SSLMODE: disable
+  env: {}
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits:   {cpu: 250m, memory: 256Mi}
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: dwangshers/dso202-amd64-frontend
+    tag: "1.0"
+    pullPolicy: IfNotPresent
+  env: {}
+  # C10: the frontend Service is a NodePort; the port number is a value.
+  service:
+    nodePort: 30080
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits:   {cpu: 100m, memory: 128Mi}
+
+# C9: no Ingress template exists in this chart and no ingress controller is
+# installed in this assignment; the flag documents that it stays off.
+ingress:
+  enabled: false
+
+# Kubernetes rejects a rollout as failed after this many seconds without
+# progress (C6). The Kubernetes default of 600 s would hide a bad release
+# for ten minutes; 120 s makes Argo CD report Degraded within two.
+progressDeadlineSeconds: 120
