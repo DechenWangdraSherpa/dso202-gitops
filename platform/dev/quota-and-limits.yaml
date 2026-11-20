@@ -1,0 +1,58 @@
+# =====================================================================
+# File        : platform/dev/quota-and-limits.yaml
+# Assignment  : DSO202 Assignment 4 (from Assignment 2, 01-quota-and-limits.yaml)
+# Descriptor  : Unit I 1.5.1 - namespace multi-tenancy; Unit II 2.3 - quotas
+# Purpose     : Bounds the dso202-dev namespace (ResourceQuota) and gives every
+#               container defaults and ceilings (LimitRange). Platform layer:
+#               the workload project (dso202) may not create or change these.
+# =====================================================================
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: assignment-quota
+  namespace: dso202-dev
+  labels:
+    dso202/assignment: "04"
+    dso202/environment: dev
+    dso202/managed-by: argocd
+spec:
+  hard:
+    # Three tiers + the smoke-test Job request ~260m CPU / ~464Mi in total.
+    # 1 core / 1Gi leaves headroom for one surge Pod during a rolling update.
+    requests.cpu: "1"
+    requests.memory: 1Gi
+    # Limits may be over-committed, so the ceiling is higher than requests.
+    limits.cpu: "2"
+    limits.memory: 2Gi
+    # 3 Pods + smoke test + rolling-update surge.
+    pods: "8"
+    # Only the database needs storage; 2 leaves one spare.
+    persistentvolumeclaims: "2"
+    count/services: "5"
+    count/configmaps: "10"   # includes the auto-created kube-root-ca.crt
+    count/secrets: "5"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: assignment-limits
+  namespace: dso202-dev
+  labels:
+    dso202/assignment: "04"
+    dso202/environment: dev
+    dso202/managed-by: argocd
+spec:
+  limits:
+  - type: Container
+    default:                # applied as limit if a container declares none
+      cpu: 200m
+      memory: 128Mi
+    defaultRequest:         # applied as request if a container declares none
+      cpu: 50m
+      memory: 64Mi
+    min:
+      cpu: 10m
+      memory: 16Mi
+    max:                    # largest single container: sized for PostgreSQL
+      cpu: "1"
+      memory: 512Mi

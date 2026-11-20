@@ -1,0 +1,79 @@
+# =====================================================================
+# File        : platform/staging/rbac.yaml
+# Assignment  : DSO202 Assignment 4 (from Assignment 2, 02-rbac.yaml)
+# Descriptor  : Unit II 2.3 - RBAC (Roles, RoleBindings, ServiceAccounts)
+# Purpose     : Kubernetes RBAC for dso202-staging: a read-only viewer and a
+#               deployer that can create/update but never delete or read
+#               Secrets. The workload ServiceAccount is rendered by the chart;
+#               Roles and RoleBindings are platform objects (requirement C8).
+# =====================================================================
+# Read-only viewer
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: app-viewer
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-and-service-reader
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+rules:
+- apiGroups: [""]
+  resources: ["pods", "services"]
+  verbs: ["get", "list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: app-viewer-binding
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+subjects:
+- kind: ServiceAccount
+  name: app-viewer
+  namespace: dso202-staging
+roleRef:
+  kind: Role
+  name: pod-and-service-reader
+  apiGroup: rbac.authorization.k8s.io
+---
+# Deployer: create/update, never delete, no Secrets
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: deployer
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: deployer-role
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments", "statefulsets"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+- apiGroups: [""]
+  resources: ["services", "configmaps"]
+  verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: deployer-binding
+  namespace: dso202-staging
+  labels: {app: task-tracker, dso202/assignment: "04", dso202/environment: staging, dso202/managed-by: argocd}
+subjects:
+- kind: ServiceAccount
+  name: deployer
+  namespace: dso202-staging
+roleRef:
+  kind: Role
+  name: deployer-role
+  apiGroup: rbac.authorization.k8s.io
