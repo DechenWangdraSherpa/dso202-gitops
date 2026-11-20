@@ -2,7 +2,7 @@
 # File        : argocd/applications/tasktracker-dev.yaml
 # Assignment  : DSO202 Assignment 4
 # Descriptor  : Unit IV 4.3.1 (Application CRDs), 4.3.2 (sync policies),
-#               4.3.3 (health checks); Unit III 3.2 (Helm)
+#               4.3.3 (health checks); Unit III 3.2 (Helm); Task 10 (multi-source)
 # Purpose     : Deploys the Task Tracker Helm chart to the dev environment.
 #               Dev follows the tip of main and heals itself automatically.
 # =====================================================================
@@ -21,19 +21,28 @@ metadata:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: dso202
-  source:
-    repoURL: https://github.com/DechenWangdraSherpa/dso202-gitops.git
-    # Dev tracks a moving reference: every merge to main is deployed.
-    targetRevision: main
-    path: charts/tasktracker
-    helm:
-      # Fixed release name, so that object names are identical in every
-      # environment; the namespace is what distinguishes them.
-      releaseName: tasktracker
-      # Paths are relative to the chart directory (charts/tasktracker), so two
-      # levels up reaches the repository root.
-      valueFiles:
-        - ../../environments/dev/values.yaml
+  # Task 10 (bonus): a multi-source Application. 'sources' replaces 'source';
+  # the two cannot appear together.
+  sources:
+    # Source 1: the chart. Dev tracks a moving reference: every merge to main
+    # is deployed.
+    - repoURL: https://github.com/DechenWangdraSherpa/dso202-gitops.git
+      targetRevision: main
+      path: charts/tasktracker
+      helm:
+        # Fixed release name, so that object names are identical in every
+        # environment; the namespace is what distinguishes them.
+        releaseName: tasktracker
+        # $values resolves to the root of the source whose ref is 'values', so
+        # the path is now relative to the repository root, not the chart.
+        valueFiles:
+          - $values/environments/dev/values.yaml
+    # Source 2: the values. It has no path and renders nothing; it exists only
+    # to be referenced as $values. Its revision can differ from the chart's,
+    # e.g. a chart pinned to a tag while values follow a branch.
+    - repoURL: https://github.com/DechenWangdraSherpa/dso202-gitops.git
+      targetRevision: main
+      ref: values
   destination:
     server: https://kubernetes.default.svc
     namespace: dso202-dev
