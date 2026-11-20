@@ -1,0 +1,35 @@
+# =====================================================================
+# File        : environments/staging/values.yaml
+# Assignment  : DSO202 Assignment 4
+# Descriptor  : Unit III 3.2 - values per environment; Unit IV 4.3.1
+# Purpose     : Everything that differs in staging from charts/tasktracker/values.yaml.
+#               Staging is read from a Git tag; NodePort 30081 is NOT mapped, so the
+#               frontend is reached with kubectl port-forward (8081).
+# =====================================================================
+environment: staging
+
+# C3: the Secret created by the Sealed Secrets controller from
+# platform/staging/tasktracker-credentials.sealed.yaml.
+existingSecret: tasktracker-credentials
+
+config:
+  # The browser reaches the staging backend through
+  #   kubectl port-forward -n dso202-staging svc/backend-svc 8083:8080
+  backendUrl: http://localhost:8083
+
+database:
+  image:
+    tag: "1.0"
+
+backend:
+  # One replica per tier conserves memory on a laptop cluster.
+  replicaCount: 1
+  image:
+    tag: "1.0"
+
+frontend:
+  replicaCount: 1
+  image:
+    tag: "1.0"
+  service:
+    nodePort: 30081
