@@ -25,7 +25,12 @@ backend:
   # One replica per tier conserves memory on a laptop cluster.
   replicaCount: 1
   image:
-    tag: "1.0"
+    tag: "1.1"
+  # Backend 1.1 refuses to start without DB_SSLMODE (its log: "required
+  # environment variable DB_SSLMODE is not set"). The in-cluster PostgreSQL
+  # has no TLS, so 'disable'. Rendered by the chart from backend.env (C2).
+  env:
+    DB_SSLMODE: disable
 
 frontend:
   replicaCount: 1
